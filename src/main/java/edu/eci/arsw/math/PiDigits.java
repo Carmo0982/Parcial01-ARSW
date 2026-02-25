@@ -1,5 +1,7 @@
 package edu.eci.arsw.math;
 
+import java.util.Scanner;
+
 public class PiDigits {
 
     private static int DigitsPerSum = 8;
@@ -35,6 +37,7 @@ public class PiDigits {
         return digits;
     }
 
+
     public static byte[] getDigits(int start, int count, int N) {
         if (start < 0 || count < 0) {
             throw new RuntimeException("Invalid Interval");
@@ -49,12 +52,60 @@ public class PiDigits {
         PiDigitsThread[] threads = new PiDigitsThread[N];
         int currentStart = start;
 
+
         for (int i = 0; i < N; i++) {
             int threadCount = digitsPerThread + (i < remaining ? 1 : 0);
             threads[i] = new PiDigitsThread(currentStart, threadCount);
-            threads[i].start();
             currentStart += threadCount;
         }
+
+
+        for (int i = 0; i < N; i++) {
+            threads[i].start();
+        }
+
+
+        Thread controller = new Thread(() -> {
+            Scanner scanner = new Scanner(System.in);
+            while (anyAlive(threads)) {
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+
+                if (!anyAlive(threads)) {
+                    break;
+                }
+
+
+                for (PiDigitsThread t : threads) {
+                    t.pause();
+                }
+
+
+                System.out.println("\n--- Progreso (pausado) ---");
+                int totalProcessed = 0;
+                for (int i = 0; i < threads.length; i++) {
+                    int processed = threads[i].getProcessedDigits();
+                    totalProcessed += processed;
+                    System.out.println("Hilo " + i + ": " + processed + " digitos procesados");
+                }
+                System.out.println("Total: " + totalProcessed + " / " + count + " digitos");
+                System.out.println("Presione Enter para continuar...");
+
+                scanner.nextLine();
+
+
+                for (PiDigitsThread t : threads) {
+                    t.resumeThread();
+                }
+            }
+        });
+        controller.setDaemon(true);
+        controller.start();
+
 
         for (int i = 0; i < N; i++) {
             try {
@@ -63,6 +114,7 @@ public class PiDigits {
                 e.printStackTrace();
             }
         }
+
 
         byte[] result = new byte[count];
         int offset = 0;
@@ -73,6 +125,15 @@ public class PiDigits {
         }
 
         return result;
+    }
+
+    private static boolean anyAlive(PiDigitsThread[] threads) {
+        for (PiDigitsThread t : threads) {
+            if (t.isAlive()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>
