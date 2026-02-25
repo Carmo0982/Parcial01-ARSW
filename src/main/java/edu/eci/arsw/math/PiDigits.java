@@ -1,23 +1,11 @@
 package edu.eci.arsw.math;
 
-///  <summary>
-///  An implementation of the Bailey-Borwein-Plouffe formula for calculating hexadecimal
-///  digits of pi.
-///  https://en.wikipedia.org/wiki/Bailey%E2%80%93Borwein%E2%80%93Plouffe_formula
-///  *** Translated from C# code: https://github.com/mmoroney/DigitsOfPi ***
-///  </summary>
 public class PiDigits {
 
     private static int DigitsPerSum = 8;
     private static double Epsilon = 1e-17;
 
-    
-    /**
-     * Returns a range of hexadecimal digits of pi.
-     * @param start The starting location of the range.
-     * @param count The number of digits to return
-     * @return An array containing the hexadecimal digits.
-     */
+
     public static byte[] getDigits(int start, int count) {
         if (start < 0) {
             throw new RuntimeException("Invalid Interval");
@@ -45,6 +33,46 @@ public class PiDigits {
         }
 
         return digits;
+    }
+
+    public static byte[] getDigits(int start, int count, int N) {
+        if (start < 0 || count < 0) {
+            throw new RuntimeException("Invalid Interval");
+        }
+        if (N <= 0) {
+            throw new RuntimeException("Number of threads must be greater than 0");
+        }
+
+        int digitsPerThread = count / N;
+        int remaining = count % N;
+
+        PiDigitsThread[] threads = new PiDigitsThread[N];
+        int currentStart = start;
+
+        for (int i = 0; i < N; i++) {
+            int threadCount = digitsPerThread + (i < remaining ? 1 : 0);
+            threads[i] = new PiDigitsThread(currentStart, threadCount);
+            threads[i].start();
+            currentStart += threadCount;
+        }
+
+        for (int i = 0; i < N; i++) {
+            try {
+                threads[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
+        byte[] result = new byte[count];
+        int offset = 0;
+        for (int i = 0; i < N; i++) {
+            byte[] partial = threads[i].getDigits();
+            System.arraycopy(partial, 0, result, offset, partial.length);
+            offset += partial.length;
+        }
+
+        return result;
     }
 
     /// <summary>
